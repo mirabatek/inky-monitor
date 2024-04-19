@@ -203,35 +203,66 @@ void updateValues()
     display.print(str);
     */
 
+    uint16_t graph_x = 70;
+    uint16_t graph_y = 88;
+    uint16_t graph_w = 205;
+    uint16_t graph_h = 30;
+
+    double graph_step = ((double)graph_w - 2) / (double)(historylength - 1);
+    double graph_delta = ((double)graph_h - 2) / (history_max - history_min);
+    uint16_t x0, x1, y0, y1;
+
     str = String(history_max, 0);
-    display.setCursor(15, 95);
+    display.getTextBounds(str, 0, 0, &tbx, &tby, &tbw, &tbh);
+    display.setCursor(15, graph_y + 8);
+    display.setCursor(graph_x - tbw - 10, 95);
     display.print(str);
 
     str = String(history_min, 0);
-    display.setCursor(15, 120);
+    display.getTextBounds(str, 0, 0, &tbx, &tby, &tbw, &tbh);
+    display.setCursor(graph_x - tbw - 10, graph_y + graph_h);
     display.print(str);
 
-    uint16_t graph_x = 75;
-    uint16_t graph_y = 90;
-    uint16_t graph_w = 205;
-    uint16_t graph_h = 30;
-    double graph_step = (double)graph_w / (double)(historylength);
-    double graph_delta = (history_max - history_min) / graph_h;
-    uint16_t x0, x1, y0, y1;
+    for (int i=0; i<=((graph_w)/2); i++)
+    {
+      display.drawPixel(graph_x + 2 * i, graph_y, TEXT_COLOR);
+      display.drawPixel(graph_x + 2 * i, graph_y + graph_h, TEXT_COLOR);
+    }
 
-    display.drawRect(graph_x, graph_y - 1, graph_w, graph_h + 1, TEXT_COLOR);
+    for (int i=0; i<=(graph_h/2); i++)
+    {
+      display.drawPixel(graph_x, graph_y + 2 * i, TEXT_COLOR);
+      display.drawPixel(graph_x + graph_w, graph_y + 2 * i, TEXT_COLOR);
+    }
 
     for (int i=0; i<(historylength-1); i++)
     {
-      x0 = (uint16_t)(graph_x + i * graph_step);
-      x1 = (uint16_t)(graph_x + (i + 1) * graph_step);
-      y0 = (uint16_t)(graph_y + graph_h - ((pricehistory[i] - history_min) / graph_delta));
-      y1 = (uint16_t)(graph_y + graph_h - ((pricehistory[i+1] - history_min) / graph_delta));
+      x0 = (uint16_t)(graph_x + 1 + i * graph_step);
+      x1 = (uint16_t)(graph_x + 1 + (i + 1) * graph_step);
+      y0 = (uint16_t)(graph_y + graph_h - 1 - ((pricehistory[i] - history_min) * graph_delta));
+      y1 = (uint16_t)(graph_y + graph_h - 1 - ((pricehistory[i+1] - history_min) * graph_delta));
    
       display.drawLine(x0, y0, x1, y1, TEXT_COLOR);
-      display.drawLine(x0 + 1, y0, x1 + 1, y1, TEXT_COLOR);
-      display.drawLine(x0 + 2, y0, x1 + 2, y1, TEXT_COLOR);
+      display.drawLine(x0, y0 - 1, x1, y1 - 1, TEXT_COLOR);
+      display.drawLine(x0, y0 + 1, x1, y1 + 1, TEXT_COLOR);
     }
+    
+    /*
+    double graph_istep = (double)(historylength - 1) / (double)graph_w;
+    double graph_idelta = graph_h / (history_max - history_min);
+    int index;
+
+    for (int i=0; i<graph_w; i++)
+    {
+      index = (int)(graph_istep * i);
+      x0 = graph_x + i;
+      x1 = x0;
+      y0 = graph_y + graph_h - ((pricehistory[index] - history_min) * graph_idelta) - 1;
+      y1 = graph_y + graph_h - ((pricehistory[index] - history_min) * graph_idelta) + 1;
+      display.drawLine(x0, y0, x1, y1, TEXT_COLOR);
+    }
+    */
+
   }
   while (display.nextPage());
 }
