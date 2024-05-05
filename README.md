@@ -3,7 +3,10 @@
 ## Overview:
 
 Bitcoin price ticker that runs on ESP32-C3 microcontroller connected to a 2.9" monochrome e-ink display. The device is connected to WiFi and periodically takes data from CoinDesk. Present bitcoin price in USD and 30 days history chart are randered on the display. You can specify the refresh rate, color scheme (standard or inverted).
+
 The device is power by 5V power supply through USB-C connector.
+
+![Inky Monitor](/images/IMG_7124.JPG)
 
 ![Inky Monitor](/images/IMG_7119.JPG)
 
