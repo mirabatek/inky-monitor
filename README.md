@@ -11,14 +11,14 @@ The device is power by 5V power supply through USB-C connector.
 
 ## Bill of Material:
 
-- ![XIAO ESP32-C3 Module](https://s.click.aliexpress.com/e/_DdLF88J)
-- ![WeAct 2.9'' E-Ink Black-White Display](https://s.click.aliexpress.com/e/_DdcPZuF)
-- 4x 2.6x10mm Screw (![Set of Screws](https://s.click.aliexpress.com/e/_Dlb471V))
-- 3x 2.6x6mm Screw (![Set of Screws](https://s.click.aliexpress.com/e/_Dlb471V))
-- 2x ![7-Pin 90° Header](https://s.click.aliexpress.com/e/_DBxgWcf) (optional)
+- [XIAO ESP32-C3 Module](https://s.click.aliexpress.com/e/_DdLF88J)
+- [WeAct 2.9'' E-Ink Black-White Display](https://s.click.aliexpress.com/e/_DdcPZuF)
+- 4x 2.6x10mm Screw ([Set of Screws](https://s.click.aliexpress.com/e/_Dlb471V))
+- 3x 2.6x6mm Screw ([Set of Screws](https://s.click.aliexpress.com/e/_Dlb471V))
+- 2x [7-Pin 90° Header](https://s.click.aliexpress.com/e/_DBxgWcf) (optional)
 
 ## Case
-See my 3D model on ![Printables](https://www.printables.com/@mirabatek/models).
+See my 3D model on [Printables](https://www.printables.com/@mirabatek/models).
 
 ## Assembly Instruction:
 1. Clean the prints.
