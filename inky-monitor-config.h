@@ -1,18 +1,17 @@
-// Base class GxEPD2_GFX can be used to pass references or pointers to the display instance as parameter, uses ~1.2k more code
-// Enable or disable GxEPD2_GFX base class
-//#define ENABLE_GxEPD2_GFX 0
-
-// WiFi Credentials
+/* WiFi Credentials */
 const char* ssid = "SSID";
 const char* password = "PASSWORD";
 
-// Refresh Rate in seconds
-#define REFRESH_RATE_S (300)
+/* Refresh Rate in seconds */
+#define REFRESH_RATE_S (30)
 
-// Uncomment if you want inverted colors
-//#define INVERTED
+/* Inverted colors */
+#define INVERTED 0
 
-#if (defined (INVERTED))
+/* SLEEP MODE */
+#define SLEEP_MODE 0
+
+#if (INVERTED)
   #define TEXT_COLOR GxEPD_WHITE
   #define BACKGROUND_COLOR GxEPD_BLACK
 #else

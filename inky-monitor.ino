@@ -11,10 +11,9 @@
 #include "jura_bold12pt7b.h"
 #include "jura_bold30pt7b.h"
 
-// 2.9'' EPD Module
+/* 2.9'' EPD Module */
 GxEPD2_BW<GxEPD2_290_BS, GxEPD2_290_BS::HEIGHT> display(GxEPD2_290_BS(/*CS=D1*/ 3, /*DC=D3*/ 5, /*RES=D0*/ 2, /*BUSY=D5*/ 7)); // DEPG0290BS 128x296, SSD1680
 
-// Powered by CoinDesk - https://www.coindesk.com/price/bitcoin
 const int httpsPort = 443;
 const String url = "http://api.coindesk.com/v1/bpi/currentprice/BTC.json";
 const String historyURL = "http://api.coindesk.com/v1/bpi/historical/close.json";
@@ -30,19 +29,20 @@ double history_min, history_max;
 WiFiClient client;
 HTTPClient http;
 
-// Variables to save date and time
 String formattedDate;
 String dayStamp;
 String timeStamp;
-
 String lastUpdated;
 
-void setup() {
+void setup()
+{
   Serial.begin(115200);
 
   WiFi.begin(ssid, password);
 
+  Serial.println();
   Serial.print("Connecting to WiFi...");
+
   while (WiFi.status() != WL_CONNECTED)
   {
     delay(500);
@@ -50,13 +50,30 @@ void setup() {
   }
   Serial.println();
 
-  Serial.println("Connected to: ");
+  Serial.print("Connected to: ");
   Serial.print(ssid);
+  Serial.println();
 
   display.init(115200, true, 50, false);
 }
 
-void loop() {
+void loop()
+{
+  getCurrentBitcoinPrice();
+  getBitcoinHistory();
+  updateDisplay();
+  Serial.println();
+
+#if (SLEEP_MODE)
+  esp_sleep_enable_timer_wakeup(REFRESH_RATE_S * 1000000);
+  esp_deep_sleep_start();
+#else
+  delay(REFRESH_RATE_S * 1000);
+#endif
+}
+
+void getCurrentBitcoinPrice()
+{
   String str;
 
   Serial.print("Connecting to ");
@@ -67,14 +84,15 @@ void loop() {
   StaticJsonDocument<2000> doc;
   DeserializationError error = deserializeJson(doc, http.getString());
 
-  if (error) {
+  if (error)
+  {
     Serial.print(F("deserializeJson Failed"));
     Serial.println(error.f_str());
     delay(2500);
     return;
   }
 
-  Serial.print("HTTP Status Code: ");
+  Serial.print("Connecting to ");
   Serial.println(httpCode);
 
   String BTCUSDPrice = doc["bpi"]["USD"]["rate_float"].as<String>();
@@ -83,35 +101,47 @@ void loop() {
 
   btcusd = BTCUSDPrice.toDouble();
 
-  Serial.print("Getting history...");
-  StaticJsonDocument<2000> historyDoc;
-  http.begin(historyURL);
-  int historyHttpCode = http.GET();
-  DeserializationError historyError = deserializeJson(historyDoc, http.getString());
+  Serial.print("BTCUSD Price: ");
+  Serial.println(BTCUSDPrice.toDouble());
+}
 
-  if (historyError) {
+void getBitcoinHistory()
+{
+  String str;
+
+  Serial.print("Getting history... ");
+  Serial.println(historyURL);
+
+  http.begin(historyURL);
+  int httpCode = http.GET();
+  StaticJsonDocument<2000> doc;
+  DeserializationError error = deserializeJson(doc, http.getString());
+
+  if (error)
+  {
     Serial.print(F("deserializeJson(History) failed"));
-    Serial.println(historyError.f_str());
+    Serial.println(error.f_str());
     delay(2500);
     return;
   }
 
-  Serial.print("History HTTP Status Code: ");
-  Serial.println(historyHttpCode);
-  JsonObject bpi = historyDoc["bpi"].as<JsonObject>();
-  double yesterdayPrice, price;
+  Serial.print("HTTP Status Code: ");
+  Serial.println(httpCode);
+
+  JsonObject bpi = doc["bpi"].as<JsonObject>();
+
+  double price;
 
   historylength = 0;
 
-  for (JsonPair kv : bpi) {
+  for (JsonPair kv : bpi)
+  {
     price = kv.value().as<double>();
-    pricehistory[historylength] = price;
-    if (price > history_max) history_max = price;
-    if (price < history_min) history_min = price;
+    pricehistory[historylength] = price;   
     historylength = historylength + 1;
   }
+  http.end();
 
-  yesterdayPrice = pricehistory[historylength - 1];
   pricehistory[historylength] = btcusd;
   historylength = historylength + 1;
 
@@ -123,31 +153,17 @@ void loop() {
     if (pricehistory[i] > history_max) history_max = pricehistory[i];
     if (pricehistory[i] < history_min) history_min = pricehistory[i];
   }
-
-  Serial.print("BTCUSD Price: ");
-  Serial.println(BTCUSDPrice.toDouble());
-
-  Serial.print("Yesterday's Price: ");
-  Serial.println(yesterdayPrice);
-
-  bool isUp = BTCUSDPrice.toDouble() > yesterdayPrice;
-  
-  if (isUp) {
-    percentChange = ((BTCUSDPrice.toDouble() - yesterdayPrice) / yesterdayPrice) * 100;
-  } else {
-    percentChange = ((yesterdayPrice - BTCUSDPrice.toDouble()) / yesterdayPrice) * 100;
+ 
+  Serial.print("BTCUSD Price History: ");
+  for (int i=0; i<historylength; i++)
+  {
+    Serial.print(pricehistory[i]);
+    Serial.print(", ");
   }
-
-  Serial.print("Percent Change: ");
-  Serial.println(percentChange);
-
-  http.end();
-
-  updateValues();
-  delay(REFRESH_RATE_S * 1000);
+  Serial.println();
 }
 
-void updateValues()
+void updateDisplay()
 {
   int16_t tbx, tby; uint16_t tbw, tbh;
   uint16_t x, y;
@@ -164,7 +180,7 @@ void updateValues()
     display.fillScreen(BACKGROUND_COLOR);
     display.setTextColor(TEXT_COLOR);
 
-    // Draw bitcoin value
+    /* Draw current Bitcoin value */
     display.setFont(&Jura_Bold30pt7b);
     str = String(btcusd, 0);
     //str = 999999;
@@ -174,19 +190,15 @@ void updateValues()
     display.setCursor(x, y);
     display.print(str);
 
-    // Draw bitcoing logo
-    //y = (int16_t)(((display.height() - 50) / 2));
-    //display.drawInvertedBitmap(10, y, epd_bitmap_allArray[0], 33, 50, TEXT_COLOR);
-
+    /* Draw BTC/USD symbols */
     display.setFont(&Jura_Bold12pt7b);
     display.setCursor(8, y_offset + 0);
     display.print("BTC");
     display.setCursor(6, y_offset + 26);
     display.print("USD");
-    //display.drawFastHLine(10, 70, 50, GxEPD_BLACK);
     display.fillRoundRect(5, y_offset + 5, 52, 3, 1, TEXT_COLOR);
 
-    // Draw last update date and time
+    /* Draw last update date and time */
     display.setFont(&Jura_Regular8pt7b);
     display.getTextBounds(lastUpdated, 0, 0, &tbx, &tby, &tbw, &tbh);
     x = ((display.width() - tbw) / 2) - tbx;
@@ -194,35 +206,29 @@ void updateValues()
     display.setCursor(x, y);
     display.print(lastUpdated);
 
-    /*
-    // Draw daily change
-    str = String(percentChange, 2);
-    str = str + "% (day)";
-    if (percentChange > 0) str = "+" + str; 
-    display.setCursor(10, 115);
-    display.print(str);
-    */
-
+    /* Draw 30-days history chart */
     uint16_t graph_x = 70;
     uint16_t graph_y = 88;
     uint16_t graph_w = 205;
     uint16_t graph_h = 30;
+    uint16_t x0, x1, y0, y1;
 
     double graph_step = ((double)graph_w - 2) / (double)(historylength - 1);
     double graph_delta = ((double)graph_h - 2) / (history_max - history_min);
-    uint16_t x0, x1, y0, y1;
-
+    
+    /* 30-days maximum */
     str = String(history_max, 0);
     display.getTextBounds(str, 0, 0, &tbx, &tby, &tbw, &tbh);
-    display.setCursor(15, graph_y + 8);
-    display.setCursor(graph_x - tbw - 10, 95);
+    display.setCursor(graph_x - tbw - 10, graph_y + 6);
     display.print(str);
 
+    /* 30-days minimum */
     str = String(history_min, 0);
     display.getTextBounds(str, 0, 0, &tbx, &tby, &tbw, &tbh);
     display.setCursor(graph_x - tbw - 10, graph_y + graph_h);
     display.print(str);
 
+    /* Doted border */
     for (int i=0; i<=((graph_w)/2); i++)
     {
       display.drawPixel(graph_x + 2 * i, graph_y, TEXT_COLOR);
@@ -235,6 +241,7 @@ void updateValues()
       display.drawPixel(graph_x + graph_w, graph_y + 2 * i, TEXT_COLOR);
     }
 
+    /* Graph line */
     for (int i=0; i<(historylength-1); i++)
     {
       x0 = (uint16_t)(graph_x + 1 + i * graph_step);
@@ -247,22 +254,6 @@ void updateValues()
       display.drawLine(x0, y0 + 1, x1, y1 + 1, TEXT_COLOR);
     }
     
-    /*
-    double graph_istep = (double)(historylength - 1) / (double)graph_w;
-    double graph_idelta = graph_h / (history_max - history_min);
-    int index;
-
-    for (int i=0; i<graph_w; i++)
-    {
-      index = (int)(graph_istep * i);
-      x0 = graph_x + i;
-      x1 = x0;
-      y0 = graph_y + graph_h - ((pricehistory[index] - history_min) * graph_idelta) - 1;
-      y1 = graph_y + graph_h - ((pricehistory[index] - history_min) * graph_idelta) + 1;
-      display.drawLine(x0, y0, x1, y1, TEXT_COLOR);
-    }
-    */
-
   }
   while (display.nextPage());
 }
