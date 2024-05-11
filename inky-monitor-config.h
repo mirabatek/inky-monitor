@@ -3,7 +3,7 @@ const char* ssid = "SSID";
 const char* password = "PASSWORD";
 
 /* Refresh Rate in seconds */
-#define REFRESH_RATE_S (30)
+#define REFRESH_RATE_S (300)
 
 /* Inverted colors */
 #define INVERTED 0

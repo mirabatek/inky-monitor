@@ -17,7 +17,7 @@ The device is power by 5V power supply through USB-C connector.
 - 3x 2.6x6mm Screw ([Set of Screws](https://s.click.aliexpress.com/e/_Dlb471V))
 - 2x [7-Pin 90° Header](https://s.click.aliexpress.com/e/_DBxgWcf) (optional)
 
-## Case
+## Case:
 See my 3D model on [Printables](https://www.printables.com/@mirabatek/models).
 
 ## Assembly Instruction:
@@ -33,13 +33,13 @@ See my 3D model on [Printables](https://www.printables.com/@mirabatek/models).
 
 ## Programming:
 1. Download the source code or clone it from GitHub
-2. Install Arduino IDE
+2. Install **Arduino IDE**
 3. Open the project in Arduino IDE
-4. Install esp32 by Espressif Systems in Boards Manager
-5. Install NTPClient by Fabrice Weinber in Library Manager
-6. Install ArduinoJson by Benoit Blanchon in Library Manager
-7. Install GxEPD2 Library by Jean-Marc Zingg (with dependencies Adafruit BusIO Library, Adafruit GFX Library) in Library Manager
-8. Select XIAO_ESP32C3 board
+4. Install **esp32** by Espressif Systems in Boards Manager
+5. Install **NTPClient** by Fabrice Weinber in Library Manager
+6. Install **ArduinoJson** by Benoit Blanchon in Library Manager
+7. Install **GxEPD2** Library by Jean-Marc Zingg (with dependencies **Adafruit BusIO** Library, **Adafruit GFX** Library) in Library Manager
+8. Select **XIAO_ESP32C3** board
 9. Update WiFi credentials (ssid, password), refresh rate, inverted mode in inky-monitor-config.h file
 10. Click on Verify
 11. Connect the ESP32C3 over the USB cable to the PC
