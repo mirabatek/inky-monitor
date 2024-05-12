@@ -169,7 +169,7 @@ void updateDisplay()
   uint16_t x, y;
   String str;
 
-  uint16_t y_offset = 45;
+  uint16_t y_offset = 47;
 
   display.setRotation(1);
   display.setFullWindow();
@@ -192,22 +192,22 @@ void updateDisplay()
 
     /* Draw BTC/USD symbols */
     display.setFont(&Jura_Bold12pt7b);
-    display.setCursor(8, y_offset + 0);
+    display.setCursor(10, y_offset + 0);
     display.print("BTC");
-    display.setCursor(6, y_offset + 26);
+    display.setCursor(8, y_offset + 26);
     display.print("USD");
-    display.fillRoundRect(5, y_offset + 5, 52, 3, 1, TEXT_COLOR);
+    display.fillRoundRect(7, y_offset + 5, 52, 3, 1, TEXT_COLOR);
 
     /* Draw last update date and time */
     display.setFont(&Jura_Regular8pt7b);
     display.getTextBounds(lastUpdated, 0, 0, &tbx, &tby, &tbw, &tbh);
     x = ((display.width() - tbw) / 2) - tbx;
-    y = 15;
+    y = 17;
     display.setCursor(x, y);
     display.print(lastUpdated);
 
     /* Draw 30-days history chart */
-    uint16_t graph_x = 70;
+    uint16_t graph_x = 72;
     uint16_t graph_y = 88;
     uint16_t graph_w = 205;
     uint16_t graph_h = 30;
@@ -219,7 +219,7 @@ void updateDisplay()
     /* 30-days maximum */
     str = String(history_max, 0);
     display.getTextBounds(str, 0, 0, &tbx, &tby, &tbw, &tbh);
-    display.setCursor(graph_x - tbw - 10, graph_y + 6);
+    display.setCursor(graph_x - tbw - 10, graph_y + 7);
     display.print(str);
 
     /* 30-days minimum */
