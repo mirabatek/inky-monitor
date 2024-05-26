@@ -1,12 +1,16 @@
 #include "inky-monitor-config.h"
+#include <FS.h>
+#include <SPIFFS.h>
 #include <WiFi.h>
 #include <Wire.h>
 #include <HTTPClient.h>
 #include <NTPClient.h> 
 #include <WiFiUdp.h>
+#include <WiFiManager.h>
 #include <ArduinoJson.h>
 #include <GxEPD2_BW.h>
 #include <GxEPD2_3C.h>
+#include <ESP_DoubleResetDetector.h>
 #include "jura_regular8pt7b.h"
 #include "jura_bold12pt7b.h"
 #include "jura_bold30pt7b.h"
@@ -34,10 +38,15 @@ String dayStamp;
 String timeStamp;
 String lastUpdated;
 
+DoubleResetDetector *drd;
+
 void setup()
 {
   Serial.begin(115200);
 
+  SPIFFS.begin(true);
+
+  /*
   WiFi.begin(ssid, password);
 
   Serial.println();
@@ -53,12 +62,39 @@ void setup()
   Serial.print("Connected to: ");
   Serial.print(ssid);
   Serial.println();
+  */
+
+  WiFiManager wm;
+
+  wm.setConfigPortalTimeout(60);
+
+  drd = new DoubleResetDetector(DRD_TIMEOUT, DRD_ADDRESS);
+
+  if (drd->detectDoubleReset())
+  {
+    Serial.println("Double Reset Detected");
+    wm.resetSettings();
+  }
+
+  bool res;
+  res = wm.autoConnect("Inky Monitor");
+
+  if(!res) 
+  {
+      Serial.println("Failed to connect");
+  } 
+  else 
+  {
+      Serial.println("Connected");
+  }
 
   display.init(115200, true, 50, false);
 }
 
 void loop()
 {
+  drd->loop();
+  
   getCurrentBitcoinPrice();
   getBitcoinHistory();
   updateDisplay();
