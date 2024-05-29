@@ -10,6 +10,7 @@
 #include "jura_regular8pt7b.h"
 #include "jura_bold12pt7b.h"
 #include "jura_bold30pt7b.h"
+#include "wifi_off.h"
 
 /* 2.9'' EPD Module */
 GxEPD2_BW<GxEPD2_290_BS, GxEPD2_290_BS::HEIGHT> display(GxEPD2_290_BS(/*CS=D1*/ 3, /*DC=D3*/ 5, /*RES=D0*/ 2, /*BUSY=D5*/ 7)); // DEPG0290BS 128x296, SSD1680
@@ -36,7 +37,10 @@ String lastUpdated;
 
 void setup()
 {
+  int i = 0;
   Serial.begin(115200);
+
+  display.init(115200, true, 50, false);
 
   WiFi.begin(ssid, password);
 
@@ -47,21 +51,32 @@ void setup()
   {
     delay(500);
     Serial.print(".");
+    i = i + 1;
+    if (i == 20) 
+    {
+      displayError();
+    }
   }
   Serial.println();
 
   Serial.print("Connected to: ");
   Serial.print(ssid);
   Serial.println();
-
-  display.init(115200, true, 50, false);
 }
 
 void loop()
 {
-  getCurrentBitcoinPrice();
-  getBitcoinHistory();
-  updateDisplay();
+  if (WiFi.status() == WL_CONNECTED)
+  {
+    getCurrentBitcoinPrice();
+    getBitcoinHistory();
+    updateDisplay();
+  }
+  else
+  {
+    Serial.println("WiFi Disconnected");
+  }
+
   Serial.println();
 
 #if (SLEEP_MODE)
@@ -92,7 +107,7 @@ void getCurrentBitcoinPrice()
     return;
   }
 
-  Serial.print("Connecting to ");
+  Serial.print("HTTP Status Code: ");
   Serial.println(httpCode);
 
   String BTCUSDPrice = doc["bpi"]["USD"]["rate_float"].as<String>();
@@ -257,3 +272,19 @@ void updateDisplay()
   }
   while (display.nextPage());
 }
+
+void displayError()
+{
+  display.setRotation(1);
+  display.setFullWindow();
+  display.firstPage();
+  
+  do
+  {
+    display.fillScreen(BACKGROUND_COLOR);
+    display.setTextColor(TEXT_COLOR);
+    display.drawInvertedBitmap((296-64)/2, (128-64)/2, epd_bitmap_allArray[0], 64, 64, TEXT_COLOR);
+  }
+  while (display.nextPage());
+}
+
