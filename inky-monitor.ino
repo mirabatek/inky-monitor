@@ -45,16 +45,26 @@ void setup()
   WiFi.begin(ssid, password);
 
   Serial.println();
-  Serial.print("Connecting to WiFi...");
+  Serial.print("Connecting to WiFi ");
 
   while (WiFi.status() != WL_CONNECTED)
   {
     delay(500);
+    
     Serial.print(".");
+    
     i = i + 1;
+    
     if (i == 20) 
     {
+      Serial.println();
       displayError();
+    }
+
+    if (i == 40)
+    {
+      Serial.println();
+      i = 21;
     }
   }
   Serial.println();
@@ -180,7 +190,8 @@ void getBitcoinHistory()
 
 void updateDisplay()
 {
-  int16_t tbx, tby; uint16_t tbw, tbh;
+  int16_t tbx, tby; 
+  uint16_t tbw, tbh;
   uint16_t x, y;
   String str;
 
@@ -275,6 +286,12 @@ void updateDisplay()
 
 void displayError()
 {
+  int16_t tbx, tby; 
+  uint16_t tbw, tbh;
+  uint16_t x, y;
+
+  String error1 = "WiFi not available";
+  String error2 = "or wrong credentials.";
   display.setRotation(1);
   display.setFullWindow();
   display.firstPage();
@@ -283,7 +300,20 @@ void displayError()
   {
     display.fillScreen(BACKGROUND_COLOR);
     display.setTextColor(TEXT_COLOR);
-    display.drawInvertedBitmap((296-64)/2, (128-64)/2, epd_bitmap_allArray[0], 64, 64, TEXT_COLOR);
+    display.drawInvertedBitmap((296-64)/2, (128-64)/2 - 20, epd_bitmap_allArray[0], 64, 64, TEXT_COLOR);
+
+    display.setFont(&Jura_Regular8pt7b);
+    display.getTextBounds(error1, 0, 0, &tbx, &tby, &tbw, &tbh);
+    x = ((display.width() - tbw) / 2) - tbx;
+    y = 90;
+    display.setCursor(x, y);
+    display.print(error1);
+
+    display.getTextBounds(error2, 0, 0, &tbx, &tby, &tbw, &tbh);
+    x = ((display.width() - tbw) / 2) - tbx;
+    y = 110;
+    display.setCursor(x, y);
+    display.print(error2);
   }
   while (display.nextPage());
 }
