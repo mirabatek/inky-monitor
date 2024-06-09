@@ -317,4 +317,3 @@ void displayError()
   }
   while (display.nextPage());
 }
-
