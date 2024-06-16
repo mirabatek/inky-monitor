@@ -26,7 +26,5 @@ const char* password = "PASSWORD";
   #define BACKGROUND_COLOR GxEPD_WHITE
 #endif
 
-#define ESP_DRD_USE_SPIFFS true
-#define ESP_DRD_USE_EEPROM false
-
-#define DOUBLERESETDETECTOR_DEBUG true
+/* Button debounce delay in ms */
+#define BUTTON_DEBOUNCE_DELAY 20
