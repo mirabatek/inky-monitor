@@ -51,10 +51,28 @@ typedef enum  {
 state_t state;
 WiFiManager wm;
 
+/* Config values */
+char refresh_rate[5] = "300";
+char inverted_mode[2] = "0";
+
+int text_color = GxEPD_BLACK;
+int background_color = GxEPD_WHITE;
+int refresh_rate_s = REFRESH_RATE_S_DEFAULT;
+
+bool save_config = false;
+
+WiFiManagerParameter custom_refresh_rate("custom_refresh_rate", "Refresh rate [30s-3600s]:", refresh_rate, 5);
+WiFiManagerParameter custom_inverted_mode("custom_inverted_mode", "Inverted mode [0/1]:", inverted_mode, 2);
+
 void setup() 
 {
   Serial.begin(115200);
-  SPIFFS.begin(true);
+  
+  if (!SPIFFS.begin(true))
+  {
+    Serial.println("Failed to mount FS");
+  }
+  
   display.init(115200, true, 50, false);
 
   buttonDebounce.registerCallbacks(buttonTest_pressedCallback, buttonTest_releasedCallback, buttonTest_pressedDurationCallback, buttonTest_releasedDurationCallback);
@@ -71,7 +89,12 @@ void loop()
   switch (state) 
   {
     case WIFI_CONFIGURE:
-      wm.setConfigPortalTimeout(60);
+      readConfiguration();
+      applyConfiguration();
+      wm.setSaveConfigCallback(saveConfigCallback);
+      wm.setConfigPortalTimeout(180);
+      wm.addParameter(&custom_refresh_rate);
+      wm.addParameter(&custom_inverted_mode);
       state = WIFI_CONNECTING;
       break;
 
@@ -86,6 +109,20 @@ void loop()
       else 
       {
         Serial.println("Connected");
+          
+        strcpy(refresh_rate, custom_refresh_rate.getValue());
+        strcpy(inverted_mode, custom_inverted_mode.getValue());
+   
+        if (save_config) 
+        {
+          applyConfiguration();
+          writeConfiguration();
+        }
+
+        Serial.println("Configuration parameters:");
+        Serial.println("  Refresh Rate: " + String(refresh_rate));
+        Serial.println("  Inverted Mode: " + String(inverted_mode));
+
         state = WIFI_CONNECTED;
       }
       break;
@@ -98,7 +135,7 @@ void loop()
         updateDisplay();
         Serial.println();
 
-        for (int i = 0; i < (REFRESH_RATE_S * 100); i++)
+        for (int i = 0; i < (refresh_rate_s * 100); i++)
         {
           now = millis();
           buttonDebounce.process(now);
@@ -226,8 +263,8 @@ void updateDisplay()
 
   do 
   {
-    display.fillScreen(BACKGROUND_COLOR);
-    display.setTextColor(TEXT_COLOR);
+    display.fillScreen(background_color);
+    display.setTextColor(text_color);
 
     /* Draw current Bitcoin value */
     display.setFont(&Jura_Bold30pt7b);
@@ -245,7 +282,7 @@ void updateDisplay()
     display.print("BTC");
     display.setCursor(8, y_offset + 26);
     display.print("USD");
-    display.fillRoundRect(7, y_offset + 5, 52, 3, 1, TEXT_COLOR);
+    display.fillRoundRect(7, y_offset + 5, 52, 3, 1, text_color);
 
     /* Draw last update date and time */
     display.setFont(&Jura_Regular8pt7b);
@@ -280,14 +317,14 @@ void updateDisplay()
     /* Doted border */
     for (int i = 0; i <= ((graph_w) / 2); i++) 
     {
-      display.drawPixel(graph_x + 2 * i, graph_y, TEXT_COLOR);
-      display.drawPixel(graph_x + 2 * i, graph_y + graph_h, TEXT_COLOR);
+      display.drawPixel(graph_x + 2 * i, graph_y, text_color);
+      display.drawPixel(graph_x + 2 * i, graph_y + graph_h, text_color);
     }
 
     for (int i = 0; i <= (graph_h / 2); i++) 
     {
-      display.drawPixel(graph_x, graph_y + 2 * i, TEXT_COLOR);
-      display.drawPixel(graph_x + graph_w, graph_y + 2 * i, TEXT_COLOR);
+      display.drawPixel(graph_x, graph_y + 2 * i, text_color);
+      display.drawPixel(graph_x + graph_w, graph_y + 2 * i, text_color);
     }
 
     /* Graph line */
@@ -298,9 +335,9 @@ void updateDisplay()
       y0 = (uint16_t)(graph_y + graph_h - 1 - ((pricehistory[i] - history_min) * graph_delta));
       y1 = (uint16_t)(graph_y + graph_h - 1 - ((pricehistory[i + 1] - history_min) * graph_delta));
 
-      display.drawLine(x0, y0, x1, y1, TEXT_COLOR);
-      display.drawLine(x0, y0 - 1, x1, y1 - 1, TEXT_COLOR);
-      display.drawLine(x0, y0 + 1, x1, y1 + 1, TEXT_COLOR);
+      display.drawLine(x0, y0, x1, y1, text_color);
+      display.drawLine(x0, y0 - 1, x1, y1 - 1, text_color);
+      display.drawLine(x0, y0 + 1, x1, y1 + 1, text_color);
     }
 
   } while (display.nextPage());
@@ -320,9 +357,9 @@ void displayInfo()
   
   do
   {
-    display.fillScreen(BACKGROUND_COLOR);
-    display.setTextColor(TEXT_COLOR);
-    display.drawInvertedBitmap((296-64)/2, (128-64)/2 - 20, epd_bitmap_allArray[1], 64, 64, TEXT_COLOR);
+    display.fillScreen(background_color);
+    display.setTextColor(text_color);
+    display.drawInvertedBitmap((296-64)/2, (128-64)/2 - 20, epd_bitmap_allArray[1], 64, 64, text_color);
 
     display.setFont(&Jura_Regular8pt7b);
     display.getTextBounds(error1, 0, 0, &tbx, &tby, &tbw, &tbh);
@@ -340,30 +377,121 @@ void displayInfo()
   while (display.nextPage());
 }
 
+void saveConfigCallback() 
+{
+  save_config = true;
+}
+
+void readConfiguration()
+{
+  if (SPIFFS.exists("/config.json")) 
+  {
+    Serial.println("Reading config file");
+    File configFile = SPIFFS.open("/config.json", "r");
+    
+    if (configFile) 
+    {
+      Serial.println("Open config file");
+      size_t size = configFile.size();
+      std::unique_ptr<char[]> buf(new char[size]);
+      configFile.readBytes(buf.get(), size);
+      
+      DynamicJsonDocument json(1024);
+      auto deserializeError = deserializeJson(json, buf.get());
+      serializeJson(json, Serial);
+      Serial.println("");
+      
+      if (!deserializeError)
+      {
+          strcpy(refresh_rate, json["refresh_rate"]);
+          strcpy(inverted_mode, json["inverted_mode"]);
+          custom_refresh_rate.setValue(refresh_rate, 5);
+          custom_inverted_mode.setValue(inverted_mode, 2);
+          applyConfiguration();
+          
+          Serial.println("Configuration loaded from json");
+      }
+      else
+      {
+        Serial.println("Failed to load configurtaion from json");
+      }
+      
+      configFile.close();
+    }   
+  }
+  else
+  {
+    Serial.println("Config file doesn't exist");
+  } 
+}
+
+void writeConfiguration()
+{
+  DynamicJsonDocument json(1024);
+
+  json["refresh_rate"] = refresh_rate;
+  json["inverted_mode"] = inverted_mode;
+
+  File configFile = SPIFFS.open("/config.json", "w");
+  
+  if (configFile) 
+  {
+      serializeJson(json, Serial);
+      serializeJson(json, configFile);
+      Serial.println("");
+      Serial.println("Configuration saved to json");
+
+      configFile.close();
+  }
+  else
+  {
+    Serial.println("Failed to open config file for writing configuration");
+  }
+}
+
+void applyConfiguration()
+{
+  if (strcmp(inverted_mode, "1") == 0)
+  {
+    text_color = GxEPD_WHITE;
+    background_color = GxEPD_BLACK;
+    sprintf(inverted_mode, "%d", 1);
+  }
+  else
+  {
+    text_color = GxEPD_BLACK;
+    background_color = GxEPD_WHITE;
+    sprintf(inverted_mode, "%d", 0);
+  }
+
+  refresh_rate_s = atoi(refresh_rate);
+  
+  if (refresh_rate_s < REFRESH_RATE_S_MIN)
+  {
+    refresh_rate_s = REFRESH_RATE_S_DEFAULT;
+    sprintf(refresh_rate, "%d", refresh_rate_s);
+  }
+
+  if (refresh_rate_s > REFRESH_RATE_S_MAX)
+  {
+    refresh_rate_s = REFRESH_RATE_S_DEFAULT;
+    sprintf(refresh_rate, "%d", refresh_rate_s);
+  }
+}
+
 void buttonTest_pressedCallback(uint8_t pinIn)
 {
   /* Handle pressed state */
-  //Serial.print("HIGH (pin: ");
-  //Serial.print(pinIn);
-  //Serial.println(")");
 }
 
 void buttonTest_releasedCallback(uint8_t pinIn)
 {
   /* Handle released state */
-  //Serial.print("LOW (pin: ");
-  //Serial.print(pinIn);
-  //Serial.println(")");
 }
 
 void buttonTest_pressedDurationCallback(uint8_t pinIn, unsigned long duration)
 {
   /* Handle still pressed state */
-  //Serial.print("HIGH (pin: ");
-  //Serial.print(pinIn);
-  //Serial.print(") still pressed, duration ");
-  //Serial.print(duration);
-  //Serial.println("ms");
 
   if (duration >= 5000) 
   {
@@ -376,8 +504,4 @@ void buttonTest_pressedDurationCallback(uint8_t pinIn, unsigned long duration)
 void buttonTest_releasedDurationCallback(uint8_t pinIn, unsigned long duration)
 {
   /* Handle released state */
-  //Serial.print("LOW (pin: ");
-  //Serial.print(pinIn);
-  //Serial.print("), duration ");
-  //Serial.print(duration);
 }
