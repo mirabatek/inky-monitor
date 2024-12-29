@@ -17,7 +17,7 @@
 #include "wifi_images.h"
 
 /* 2.9'' EPD Module */
-GxEPD2_BW<GxEPD2_290_BS, GxEPD2_290_BS::HEIGHT> display(GxEPD2_290_BS(/*CS=D1*/ 3, /*DC=D3*/ 5, /*RES=D0*/ 2, /*BUSY=D5*/ 7));  // DEPG0290BS 128x296, SSD1680
+GxEPD2_3C<GxEPD2_290_C90c, GxEPD2_290_C90c::HEIGHT> display(GxEPD2_290_C90c(/*CS=D1*/ 3, /*DC=D3*/ 5, /*RES=D0*/ 2, /*BUSY=D5*/ 7)); // DEPG0290BS 128x296, SSD1680
 
 static const int button = 9;
 static InputDebounce buttonDebounce; 
@@ -57,6 +57,7 @@ char inverted_mode[2] = "0";
 
 int text_color = GxEPD_BLACK;
 int background_color = GxEPD_WHITE;
+int bitcoin_price_color = GxEPD_RED;
 int refresh_rate_s = REFRESH_RATE_S_DEFAULT;
 
 bool save_config = false;
@@ -264,9 +265,9 @@ void updateDisplay()
   do 
   {
     display.fillScreen(background_color);
-    display.setTextColor(text_color);
-
+    
     /* Draw current Bitcoin value */
+    display.setTextColor(bitcoin_price_color);
     display.setFont(&Jura_Bold30pt7b);
     str = String(btcusd, 0);
     //str = 999999;
@@ -277,6 +278,7 @@ void updateDisplay()
     display.print(str);
 
     /* Draw BTC/USD symbols */
+    display.setTextColor(text_color);
     display.setFont(&Jura_Bold12pt7b);
     display.setCursor(10, y_offset + 0);
     display.print("BTC");
