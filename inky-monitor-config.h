@@ -11,6 +11,9 @@ const char* password = "PASSWORD";
 /* SLEEP MODE */
 #define SLEEP_MODE 0
 
+/* Time Zone Offset */
+#define TIME_ZONE_OFFSET (+1)
+
 #if (INVERTED)
   #define TEXT_COLOR GxEPD_WHITE
   #define BACKGROUND_COLOR GxEPD_BLACK

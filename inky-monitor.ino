@@ -7,6 +7,7 @@
 #include <ArduinoJson.h>
 #include <GxEPD2_BW.h>
 #include <GxEPD2_3C.h>
+#include <TimeLib.h>
 #include "jura_regular8pt7b.h"
 #include "jura_bold12pt7b.h"
 #include "jura_bold30pt7b.h"
@@ -16,8 +17,9 @@
 GxEPD2_BW<GxEPD2_290_BS, GxEPD2_290_BS::HEIGHT> display(GxEPD2_290_BS(/*CS=D1*/ 3, /*DC=D3*/ 5, /*RES=D0*/ 2, /*BUSY=D5*/ 7)); // DEPG0290BS 128x296, SSD1680
 
 const int httpsPort = 443;
-const String url = "http://api.coindesk.com/v1/bpi/currentprice/BTC.json";
-const String historyURL = "http://api.coindesk.com/v1/bpi/historical/close.json";
+const String url_usd = "https://api.coinbase.com/v2/prices/BTC-USD/spot";
+const String timeURL = "https://api.coinbase.com/v2/time";
+const String historyURL = "https://api.coindesk.com/v1/bpi/historical/close.json";
 const String cryptoCode = "BTC";
 
 double btcusd;
@@ -80,6 +82,7 @@ void loop()
   {
     getCurrentBitcoinPrice();
     getBitcoinHistory();
+    getTime();
     updateDisplay();
   }
   else
@@ -102,16 +105,17 @@ void getCurrentBitcoinPrice()
   String str;
 
   Serial.print("Connecting to ");
-  Serial.println(url);
+  Serial.println(url_usd);
 
-  http.begin(url);
+  http.begin(url_usd);
+  
   int httpCode = http.GET();
   StaticJsonDocument<2000> doc;
   DeserializationError error = deserializeJson(doc, http.getString());
 
   if (error)
   {
-    Serial.print(F("deserializeJson Failed"));
+    Serial.print(F("deserializeJson Failed "));
     Serial.println(error.f_str());
     delay(2500);
     return;
@@ -120,14 +124,49 @@ void getCurrentBitcoinPrice()
   Serial.print("HTTP Status Code: ");
   Serial.println(httpCode);
 
-  String BTCUSDPrice = doc["bpi"]["USD"]["rate_float"].as<String>();
-  lastUpdated = doc["time"]["updated"].as<String>();
+  String BTCUSDPrice = doc["data"]["amount"].as<String>();
   http.end();
 
   btcusd = BTCUSDPrice.toDouble();
 
   Serial.print("BTCUSD Price: ");
   Serial.println(BTCUSDPrice.toDouble());
+}
+
+void getTime()
+{
+  String str;
+
+  Serial.print("Connecting to ");
+  Serial.println(timeURL);
+
+  http.begin(timeURL);
+  int httpCode = http.GET();
+  StaticJsonDocument<2000> doc;
+  DeserializationError error = deserializeJson(doc, http.getString());
+
+  if (error)
+  {
+    Serial.print(F("deserializeJson Failed "));
+    Serial.println(error.f_str());
+    delay(2500);
+    return;
+  }
+
+  Serial.print("HTTP Status Code: ");
+  Serial.println(httpCode);
+
+  lastUpdated = doc["data"]["iso"].as<String>();
+  //lastUpdated[10] = ' ';
+  //lastUpdated[19] = ' ';
+  //lastUpdated = lastUpdated + "UTC";
+  http.end();
+
+  tmElements_t tm;
+  parseISO8601(lastUpdated, tm);
+  time_t utcTime = makeTime(tm);
+  time_t localTime = applyTimezoneOffset(utcTime, TIME_ZONE_OFFSET);
+  createTimeString(localTime, lastUpdated);
 }
 
 void getBitcoinHistory()
@@ -144,7 +183,7 @@ void getBitcoinHistory()
 
   if (error)
   {
-    Serial.print(F("deserializeJson(History) failed"));
+    Serial.print(F("deserializeJson(History) failed "));
     Serial.println(error.f_str());
     delay(2500);
     return;
@@ -162,7 +201,7 @@ void getBitcoinHistory()
   for (JsonPair kv : bpi)
   {
     price = kv.value().as<double>();
-    pricehistory[historylength] = price;   
+    pricehistory[historylength] = price;
     historylength = historylength + 1;
   }
   http.end();
@@ -172,15 +211,15 @@ void getBitcoinHistory()
 
   history_min = 999999;
   history_max = 0;
-  
-  for (int i=0; i<historylength; i++)
+
+  for (int i = 0; i < historylength; i++)
   {
     if (pricehistory[i] > history_max) history_max = pricehistory[i];
     if (pricehistory[i] < history_min) history_min = pricehistory[i];
   }
- 
+
   Serial.print("BTCUSD Price History: ");
-  for (int i=0; i<historylength; i++)
+  for (int i = 0; i < historylength; i++)
   {
     Serial.print(pricehistory[i]);
     Serial.print(", ");
@@ -241,7 +280,7 @@ void updateDisplay()
 
     double graph_step = ((double)graph_w - 2) / (double)(historylength - 1);
     double graph_delta = ((double)graph_h - 2) / (history_max - history_min);
-    
+
     /* 30-days maximum */
     str = String(history_max, 0);
     display.getTextBounds(str, 0, 0, &tbx, &tby, &tbw, &tbh);
@@ -255,26 +294,26 @@ void updateDisplay()
     display.print(str);
 
     /* Doted border */
-    for (int i=0; i<=((graph_w)/2); i++)
+    for (int i = 0; i <= ((graph_w) / 2); i++)
     {
       display.drawPixel(graph_x + 2 * i, graph_y, TEXT_COLOR);
       display.drawPixel(graph_x + 2 * i, graph_y + graph_h, TEXT_COLOR);
     }
 
-    for (int i=0; i<=(graph_h/2); i++)
+    for (int i = 0; i <= (graph_h / 2); i++)
     {
       display.drawPixel(graph_x, graph_y + 2 * i, TEXT_COLOR);
       display.drawPixel(graph_x + graph_w, graph_y + 2 * i, TEXT_COLOR);
     }
 
     /* Graph line */
-    for (int i=0; i<(historylength-1); i++)
+    for (int i = 0; i < (historylength - 1); i++)
     {
       x0 = (uint16_t)(graph_x + 1 + i * graph_step);
       x1 = (uint16_t)(graph_x + 1 + (i + 1) * graph_step);
       y0 = (uint16_t)(graph_y + graph_h - 1 - ((pricehistory[i] - history_min) * graph_delta));
-      y1 = (uint16_t)(graph_y + graph_h - 1 - ((pricehistory[i+1] - history_min) * graph_delta));
-   
+      y1 = (uint16_t)(graph_y + graph_h - 1 - ((pricehistory[i + 1] - history_min) * graph_delta));
+
       display.drawLine(x0, y0, x1, y1, TEXT_COLOR);
       display.drawLine(x0, y0 - 1, x1, y1 - 1, TEXT_COLOR);
       display.drawLine(x0, y0 + 1, x1, y1 + 1, TEXT_COLOR);
@@ -282,6 +321,32 @@ void updateDisplay()
     
   }
   while (display.nextPage());
+}
+
+/* Function to parse ISO 8601 date-time string (e.g., "2025-01-17T12:30:45Z") into a tmElements_t structure. */
+void parseISO8601(const String &isoTime, tmElements_t &tm) 
+{
+  if (isoTime.length() < 19) return;
+
+  tm.Year = CalendarYrToTm(isoTime.substring(0, 4).toInt());
+  tm.Month = isoTime.substring(5, 7).toInt();
+  tm.Day = isoTime.substring(8, 10).toInt();
+  tm.Hour = isoTime.substring(11, 13).toInt();
+  tm.Minute = isoTime.substring(14, 16).toInt();
+  tm.Second = isoTime.substring(17, 19).toInt();
+}
+
+/* Function to apply a timezone offset (in hours) to the given time. */
+time_t applyTimezoneOffset(const time_t utcTime, const int timezoneOffset) 
+{
+  return utcTime + timezoneOffset * SECS_PER_HOUR;
+}
+
+void createTimeString(const time_t time, String &timeString)
+{
+  char buffer[20];
+  sprintf(buffer, "%d-%02d-%02d %02d:%02d:%02d", year(time), month(time), day(time), hour(time), minute(time), second(time));
+  timeString = String(buffer);
 }
 
 void displayError()
@@ -300,7 +365,7 @@ void displayError()
   {
     display.fillScreen(BACKGROUND_COLOR);
     display.setTextColor(TEXT_COLOR);
-    display.drawInvertedBitmap((296-64)/2, (128-64)/2 - 20, epd_bitmap_allArray[0], 64, 64, TEXT_COLOR);
+    display.drawInvertedBitmap((296 - 64) / 2, (128 - 64) / 2 - 20, epd_bitmap_allArray[0], 64, 64, TEXT_COLOR);
 
     display.setFont(&Jura_Regular8pt7b);
     display.getTextBounds(error1, 0, 0, &tbx, &tby, &tbw, &tbh);
