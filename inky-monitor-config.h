@@ -5,3 +5,6 @@
 
 /* Button debounce delay in ms */
 #define BUTTON_DEBOUNCE_DELAY 20
+
+/* Time Zone Offset */
+#define TIME_ZONE_OFFSET_DEFAULT (0)
