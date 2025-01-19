@@ -11,6 +11,7 @@
 #include <GxEPD2_BW.h>
 #include <GxEPD2_3C.h>
 #include <InputDebounce.h>
+#include <TimeLib.h>
 #include "jura_regular8pt7b.h"
 #include "jura_bold12pt7b.h"
 #include "jura_bold30pt7b.h"
@@ -23,12 +24,13 @@ static const int button = 9;
 static InputDebounce buttonDebounce; 
 
 const int httpsPort = 443;
-const String url = "http://api.coindesk.com/v1/bpi/currentprice/BTC.json";
-const String historyURL = "http://api.coindesk.com/v1/bpi/historical/close.json";
+const String url_usd = "https://api.coinbase.com/v2/prices/BTC-USD/spot";
+const String timeURL = "https://api.coinbase.com/v2/time";
+const String historyURL = "https://api.coindesk.com/v1/bpi/historical/close.json";
 const String cryptoCode = "BTC";
 
 double btcusd;
-double percentChange;
+String lastUpdated;
 
 double pricehistory[32];
 uint8_t historylength;
@@ -36,11 +38,6 @@ double history_min, history_max;
 
 WiFiClient client;
 HTTPClient http;
-
-String formattedDate;
-String dayStamp;
-String timeStamp;
-String lastUpdated;
 
 typedef enum  {
   WIFI_CONFIGURE,
@@ -54,15 +51,18 @@ WiFiManager wm;
 /* Config values */
 char refresh_rate[5] = "300";
 char inverted_mode[2] = "0";
+char time_zone_offset[4] = "1";
 
 int text_color = GxEPD_BLACK;
 int background_color = GxEPD_WHITE;
 int refresh_rate_s = REFRESH_RATE_S_DEFAULT;
+int time_zone_offset_s = TIME_ZONE_OFFSET_DEFAULT;
 
 bool save_config = false;
 
 WiFiManagerParameter custom_refresh_rate("custom_refresh_rate", "Refresh rate [30s-3600s]:", refresh_rate, 5);
 WiFiManagerParameter custom_inverted_mode("custom_inverted_mode", "Inverted mode [0/1]:", inverted_mode, 2);
+WiFiManagerParameter custom_time_zone_offset("custom_time_sone_offser", "Time Zone Offset:", time_zone_offset, 4);
 
 void setup() 
 {
@@ -95,6 +95,7 @@ void loop()
       wm.setConfigPortalTimeout(180);
       wm.addParameter(&custom_refresh_rate);
       wm.addParameter(&custom_inverted_mode);
+      wm.addParameter(&custom_time_zone_offset);
       state = WIFI_CONNECTING;
       break;
 
@@ -112,6 +113,7 @@ void loop()
           
         strcpy(refresh_rate, custom_refresh_rate.getValue());
         strcpy(inverted_mode, custom_inverted_mode.getValue());
+        strcpy(time_zone_offset, custom_time_zone_offset.getValue());
    
         if (save_config) 
         {
@@ -122,6 +124,7 @@ void loop()
         Serial.println("Configuration parameters:");
         Serial.println("  Refresh Rate: " + String(refresh_rate));
         Serial.println("  Inverted Mode: " + String(inverted_mode));
+        Serial.println("  Time Zone Offset: " + String(time_zone_offset));
 
         state = WIFI_CONNECTED;
       }
@@ -132,6 +135,7 @@ void loop()
       {
         getCurrentBitcoinPrice();
         getBitcoinHistory();
+        getTime();
         updateDisplay();
         Serial.println();
 
@@ -162,16 +166,16 @@ void getCurrentBitcoinPrice()
   String str;
 
   Serial.print("Connecting to ");
-  Serial.println(url);
+  Serial.println(url_usd);
 
-  http.begin(url);
+  http.begin(url_usd);
   int httpCode = http.GET();
   StaticJsonDocument<2000> doc;
   DeserializationError error = deserializeJson(doc, http.getString());
 
-  if (error) 
+  if (error)
   {
-    Serial.print(F("deserializeJson Failed"));
+    Serial.print(F("deserializeJson Failed "));
     Serial.println(error.f_str());
     delay(2500);
     return;
@@ -180,14 +184,46 @@ void getCurrentBitcoinPrice()
   Serial.print("HTTP Status Code: ");
   Serial.println(httpCode);
 
-  String BTCUSDPrice = doc["bpi"]["USD"]["rate_float"].as<String>();
-  lastUpdated = doc["time"]["updated"].as<String>();
+  String BTCUSDPrice = doc["data"]["amount"].as<String>();
   http.end();
 
   btcusd = BTCUSDPrice.toDouble();
 
   Serial.print("BTCUSD Price: ");
   Serial.println(BTCUSDPrice.toDouble());
+}
+
+void getTime()
+{
+  String str;
+
+  Serial.print("Connecting to ");
+  Serial.println(timeURL);
+
+  http.begin(timeURL);
+  int httpCode = http.GET();
+  StaticJsonDocument<2000> doc;
+  DeserializationError error = deserializeJson(doc, http.getString());
+
+  if (error)
+  {
+    Serial.print(F("deserializeJson Failed "));
+    Serial.println(error.f_str());
+    delay(2500);
+    return;
+  }
+
+  Serial.print("HTTP Status Code: ");
+  Serial.println(httpCode);
+
+  lastUpdated = doc["data"]["iso"].as<String>();
+  http.end();
+
+  tmElements_t tm;
+  parseISO8601(lastUpdated, tm);
+  time_t utcTime = makeTime(tm);
+  time_t localTime = applyTimezoneOffset(utcTime, time_zone_offset_s);
+  createTimeString(localTime, lastUpdated);
 }
 
 void getBitcoinHistory() 
@@ -204,7 +240,7 @@ void getBitcoinHistory()
 
   if (error) 
   {
-    Serial.print(F("deserializeJson(History) failed"));
+    Serial.print(F("deserializeJson Failed "));
     Serial.println(error.f_str());
     delay(2500);
     return;
@@ -405,8 +441,10 @@ void readConfiguration()
       {
           strcpy(refresh_rate, json["refresh_rate"]);
           strcpy(inverted_mode, json["inverted_mode"]);
+          strcpy(time_zone_offset, json["time_zone_offset"]);
           custom_refresh_rate.setValue(refresh_rate, 5);
           custom_inverted_mode.setValue(inverted_mode, 2);
+          custom_time_zone_offset.setValue(time_zone_offset, 4);
           applyConfiguration();
           
           Serial.println("Configuration loaded from json");
@@ -431,6 +469,7 @@ void writeConfiguration()
 
   json["refresh_rate"] = refresh_rate;
   json["inverted_mode"] = inverted_mode;
+  json["time_zone_offset"] = time_zone_offset;
 
   File configFile = SPIFFS.open("/config.json", "w");
   
@@ -477,6 +516,47 @@ void applyConfiguration()
     refresh_rate_s = REFRESH_RATE_S_DEFAULT;
     sprintf(refresh_rate, "%d", refresh_rate_s);
   }
+
+  time_zone_offset_s = atoi(time_zone_offset);
+
+    if (refresh_rate_s < REFRESH_RATE_S_MIN)
+  {
+    refresh_rate_s = REFRESH_RATE_S_DEFAULT;
+    sprintf(refresh_rate, "%d", refresh_rate_s);
+  }
+
+  if (refresh_rate_s > REFRESH_RATE_S_MAX)
+  {
+    refresh_rate_s = REFRESH_RATE_S_DEFAULT;
+    sprintf(refresh_rate, "%d", refresh_rate_s);
+  }
+}
+
+/* Function to parse ISO 8601 date-time string (e.g., "2025-01-17T12:30:45Z") into a tmElements_t structure. */
+void parseISO8601(const String &isoTime, tmElements_t &tm) 
+{
+  if (isoTime.length() < 19) return;
+
+  tm.Year = CalendarYrToTm(isoTime.substring(0, 4).toInt());
+  tm.Month = isoTime.substring(5, 7).toInt();
+  tm.Day = isoTime.substring(8, 10).toInt();
+  tm.Hour = isoTime.substring(11, 13).toInt();
+  tm.Minute = isoTime.substring(14, 16).toInt();
+  tm.Second = isoTime.substring(17, 19).toInt();
+}
+
+/* Function to apply a timezone offset (in hours) to the given time. */
+time_t applyTimezoneOffset(const time_t utcTime, const int timezoneOffset) 
+{
+  return utcTime + timezoneOffset * SECS_PER_HOUR;
+}
+
+/* Convert time variable to string */
+void createTimeString(const time_t time, String &timeString)
+{
+  char buffer[20];
+  sprintf(buffer, "%d-%02d-%02d %02d:%02d:%02d", year(time), month(time), day(time), hour(time), minute(time), second(time));
+  timeString = String(buffer);
 }
 
 void buttonTest_pressedCallback(uint8_t pinIn)
