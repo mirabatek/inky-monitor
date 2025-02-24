@@ -8,3 +8,6 @@
 
 /* Time Zone Offset */
 #define TIME_ZONE_OFFSET_DEFAULT (0)
+
+/* Chart Mode */
+#define CHART_MODE_DEFAULT (0)
