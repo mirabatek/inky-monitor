@@ -462,6 +462,10 @@ void updateDisplay()
           y0 = (uint16_t)(graph_y + graph_h - 1 - ((pricehistory[i][2] - history_min) * graph_delta));
           h = (uint16_t)((pricehistory[i][2] - pricehistory[i][3]) * graph_delta);
           display.fillRect(x0 - 2, y0, 5, h, text_color);
+          if (h > 2)
+          {
+            display.fillRect(x0 - 1, y0 + 1 , 3, h - 2, bitcoin_price_color);
+          }
         }
       }
     }
